@@ -1,0 +1,20 @@
+{
+	"thumb": {
+		"operations": {
+			"cover": [200, 200, "lanczos"]
+		},
+		"quality": 75
+	},
+	"high": {
+		"maxWidth": 1080,
+		"quality": 80
+	},
+	"low": {
+		"maxWidth": 720,
+		"quality": 65
+	},
+	"500": {
+		"maxWidth": 500,
+		"quality": 75
+	}
+}

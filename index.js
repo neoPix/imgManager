@@ -39,6 +39,34 @@ function processYieldable(it) {
 	});
 }
 
+function transformImage (img, transform, path, ext) {
+	let batch = img.batch();
+	if(transform.operations) {
+		Object.keys(transform.operations).forEach(operation => {
+			batch = batch[operation].apply(batch, transform.operations[operation]);
+		});
+	}
+	if(transform.maxWidth){
+		let w = img.width();
+		if(w > transform.maxWidth) {
+			let ratio = transform.maxWidth / w;
+			batch = batch.scale.apply(batch, [ratio, 'lanczos']);
+		}
+	}
+	if(['jpg', 'jpeg'].indexOf(ext) >= 0) {
+		return cbToPromise(batch.writeFile, batch, `${path}/${transform.name}.${ext}`, {quality: transform.quality || 95});
+	}
+	else {
+		return cbToPromise(batch.writeFile, batch, `${path}/${transform.name}.${ext}`);
+	}
+}
+
+function *transformImages(keys, img, path, ext) {
+	for(key of keys) {
+		yield transformImage(img, key, path, ext);
+	}
+}
+
 function *convertImage(files, config) {
 	let processed = 0;
 	for(const file of files) {
@@ -51,33 +79,14 @@ function *convertImage(files, config) {
 		console.log(`Image : ${processed} / ${files.length}`);
 
 		yield cbToPromise(lwip.open, lwip, file).then(img => {
-			var promises = Object.keys(config)
+			let keys = Object.keys(config)
 			.filter(key => ['dir'].indexOf(key) === -1)
 			.map(key => {
-				const transform = config[key];
-				return cbToPromise(img.clone, img).then(img => {
-					let batch = img.batch();
-					if(transform.operations) {
-						Object.keys(transform.operations).forEach(operation => {
-							batch = batch[operation].apply(batch, transform.operations[operation]);
-						});
-					}
-					if(transform.maxWidth){
-						let w = img.width();
-						if(w > transform.maxWidth) {
-							let ratio = transform.maxWidth / w;
-							batch = batch.scale.apply(batch, [ratio, 'lanczos']);
-						}
-					}
-					if(['jpg', 'jpeg'].indexOf(ext) >= 0) {
-						return cbToPromise(batch.writeFile, batch, `${path}/${key}.${ext}`, {quality: transform.quality || 95});
-					}
-					else {
-						return cbToPromise(batch.writeFile, batch, `${path}/${key}.${ext}`);
-					}
-				});
+				config[key].name = key;
+				return config[key]
 			});
-			return Promise.all(promises);
+
+			return processYieldable(transformImages(keys, img, path, ext));
 		}, err => console.error(err));
 	}
 };
@@ -102,4 +111,4 @@ cbToPromise(glob, null, '**/config.json', {}).then(files => {
 		parsed.dir = parsed.dir.join('/');
 		return parsed
 	});
-}).then(configs => processYieldable(execConfigs(configs)));
+}).then(configs => processYieldable(execConfigs(configs))).catch(err => console.error(err));

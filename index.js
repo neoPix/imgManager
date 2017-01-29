@@ -39,26 +39,28 @@ function processYieldable(it) {
 	});
 }
 
-function transformImage (img, transform, path, ext) {
-	let batch = img.batch();
-	if(transform.operations) {
-		Object.keys(transform.operations).forEach(operation => {
-			batch = batch[operation].apply(batch, transform.operations[operation]);
-		});
-	}
-	if(transform.maxWidth){
-		let w = img.width();
-		if(w > transform.maxWidth) {
-			let ratio = transform.maxWidth / w;
-			batch = batch.scale.apply(batch, [ratio, 'lanczos']);
+function transformImage (file, transform, path, ext) {
+	return cbToPromise(lwip.open, lwip, file).then(img => {
+		let batch = img.batch();
+		if(transform.operations) {
+			Object.keys(transform.operations).forEach(operation => {
+				batch = batch[operation].apply(batch, transform.operations[operation]);
+			});
 		}
-	}
-	if(['jpg', 'jpeg'].indexOf(ext) >= 0) {
-		return cbToPromise(batch.writeFile, batch, `${path}/${transform.name}.${ext}`, {quality: transform.quality || 95});
-	}
-	else {
-		return cbToPromise(batch.writeFile, batch, `${path}/${transform.name}.${ext}`);
-	}
+		if(transform.maxWidth){
+			let w = img.width();
+			if(w > transform.maxWidth) {
+				let ratio = transform.maxWidth / w;
+				batch = batch.scale.apply(batch, [ratio, 'lanczos']);
+			}
+		}
+		if(['jpg', 'jpeg'].indexOf(ext) >= 0) {
+			return cbToPromise(batch.writeFile, batch, `${path}/${transform.name}.${ext}`, {quality: transform.quality || 95});
+		}
+		else {
+			return cbToPromise(batch.writeFile, batch, `${path}/${transform.name}.${ext}`);
+		}
+	});	
 }
 
 function *transformImages(keys, img, path, ext) {
@@ -78,16 +80,14 @@ function *convertImage(files, config) {
 		processed ++;
 		console.log(`Image : ${processed} / ${files.length}`);
 
-		yield cbToPromise(lwip.open, lwip, file).then(img => {
-			let keys = Object.keys(config)
-			.filter(key => ['dir'].indexOf(key) === -1)
-			.map(key => {
-				config[key].name = key;
-				return config[key]
-			});
+		let keys = Object.keys(config)
+		.filter(key => ['dir'].indexOf(key) === -1)
+		.map(key => {
+			config[key].name = key;
+			return config[key]
+		});
 
-			return processYieldable(transformImages(keys, img, path, ext));
-		}, err => console.error(err));
+		yield processYieldable(transformImages(keys, file, path, ext));
 	}
 };
 

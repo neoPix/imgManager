@@ -65,7 +65,10 @@ function transformImage (file, transform, path, ext) {
 
 function *transformImages(keys, img, path, ext) {
 	for(key of keys) {
-		yield transformImage(img, key, path, ext);
+		yield transformImage(img, key, path, ext).then(res => res, err => {
+			console.error(img, key, err);
+			return true;
+		});
 	}
 }
 
